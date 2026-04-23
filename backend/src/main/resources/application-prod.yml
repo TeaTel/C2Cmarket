@@ -22,9 +22,11 @@ spring:
       schema-locations: classpath:schema-mysql.sql
       data-locations: classpath:data-mysql.sql
   
-  # 恢复延迟初始化（禁用它可能改变了Bean初始化顺序导致Controller未注册）
+  # 关键修复：禁用延迟初始化确保所有Bean立即创建
+  # 诊断发现：有依赖的Controller未注册，可能因lazy-init导致Service未及时初始化
   main:
-    lazy-initialization: true
+    lazy-initialization: false
+    allow-circular-references: true
   
   # JPA配置
   jpa:

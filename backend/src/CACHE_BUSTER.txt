@@ -1,6 +1,6 @@
 # Cache Buster - Force Docker Rebuild
-# Version: 7.0 - Add diagnostics controller + restore lazy-init
-# Timestamp: 2026-04-23T19:10:00+08:00
-BUILD_VERSION=7.0.0-diagnostics-controller
+# Version: 8.0 - Fix lazy-init + allow-circular-references
+# Timestamp: 2026-04-23T19:20:00+08:00
+BUILD_VERSION=8.0.0-fix-bean-init-order
 FORCE_REBUILD=true
-FIX_DESCRIPTION=Added_DiagnosticsController_to_test_if_Spring_MVC_works
+FIX_DESCRIPTION=Disabled_lazy_init_and_allowed_circular_refs_to_fix_Controller_registration
