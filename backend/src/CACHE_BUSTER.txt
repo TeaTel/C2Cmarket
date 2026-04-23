@@ -1,0 +1,6 @@
+# Cache Buster - Force Docker Rebuild
+# Version: 3.0 - Fix ERR_ABORTED static resource issue
+# Timestamp: 2026-04-23T16:30:00+08:00
+# This file forces Docker to invalidate cache layer for COPY backend/src ./src
+BUILD_VERSION=3.0.0-fix-err-aborted
+FORCE_REBUILD=true
