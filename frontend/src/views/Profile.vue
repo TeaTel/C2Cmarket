@@ -1,447 +1,397 @@
 <template>
-  <div class="profile">
-    <NavBar />
-    
-    <main class="main-content">
-      <div class="container">
-        <div class="page-header">
-          <h1 class="page-title">个人资料</h1>
-          <p class="page-subtitle">管理您的个人信息和账户设置</p>
+  <div class="profile-page">
+    <!-- 用户信息头部 -->
+    <header class="profile-header">
+      <div class="header-bg"></div>
+      <div class="user-info-card">
+        <div class="avatar-section" @click="handleAvatarClick">
+          <img
+            :src="userInfo.avatar || defaultAvatar"
+            :alt="userInfo.nickname || '用户'"
+            class="user-avatar"
+          />
+          <span class="edit-avatar-badge">编辑</span>
         </div>
-        
-        <div v-if="loading" class="loading-state">
-          <div class="spinner"></div>
-          <p>加载中...</p>
-        </div>
-        
-        <div v-else-if="user" class="profile-container">
-          <!-- 用户头像卡片 -->
-          <div class="avatar-card">
-            <div class="avatar-section">
-              <div class="avatar-wrapper">
-                <img :src="user.avatar || '/default-avatar.png'" :alt="user.username" class="avatar-image" />
-                <button @click="changeAvatar" class="change-avatar-btn">
-                  <span>更换头像</span>
-                </button>
-              </div>
-              <h2 class="username">{{ user.username }}</h2>
-              <p class="user-role">{{ user.isStudent ? '学生' : '教师' }}</p>
-            </div>
+        <h2 class="user-name">{{ userInfo.nickname || '未设置昵称' }}</h2>
+        <p class="user-id">ID: {{ userInfo.id || '---' }}</p>
+        <p v-if="userInfo.bio" class="user-bio">{{ userInfo.bio }}</p>
+
+        <div class="stats-row">
+          <div class="stat-item">
+            <span class="stat-value">{{ stats.published }}</span>
+            <span class="stat-label">发布</span>
           </div>
-          
-          <!-- 个人信息表单 -->
-          <div class="info-card">
-            <h3 class="card-title">基本信息</h3>
-            <form @submit.prevent="updateProfile" class="info-form">
-              <div class="form-grid">
-                <div class="form-group">
-                  <label class="form-label">用户名</label>
-                  <input type="text" :value="user.username" disabled class="form-input" />
-                  <p class="form-hint">用户名不可修改</p>
-                </div>
-                
-                <div class="form-group">
-                  <label class="form-label">手机号</label>
-                  <input type="tel" v-model="formData.phone" class="form-input" placeholder="请输入手机号" />
-                </div>
-                
-                <div class="form-group">
-                  <label class="form-label">邮箱</label>
-                  <input type="email" v-model="formData.email" class="form-input" placeholder="请输入邮箱" />
-                </div>
-                
-                <div class="form-group">
-                  <label class="form-label">学校</label>
-                  <input type="text" v-model="formData.school" class="form-input" placeholder="请输入学校名称" />
-                </div>
-                
-                <div class="form-group full-width">
-                  <label class="form-label">专业</label>
-                  <input type="text" v-model="formData.major" class="form-input" placeholder="请输入专业名称" />
-                </div>
-                
-                <div class="form-group full-width">
-                  <label class="form-label">微信号</label>
-                  <input type="text" v-model="formData.wechat" class="form-input" placeholder="选填，方便其他用户联系您" />
-                </div>
-                
-                <div class="form-group full-width">
-                  <label class="form-label">QQ号</label>
-                  <input type="text" v-model="formData.qq" class="form-input" placeholder="选填" />
-                </div>
-              </div>
-              
-              <div v-if="successMessage" class="alert alert-success">
-                {{ successMessage }}
-              </div>
-              
-              <div v-if="errorMessage" class="alert alert-error">
-                {{ errorMessage }}
-              </div>
-              
-              <button type="submit" class="btn btn-primary btn-lg" :disabled="saving">
-                {{ saving ? '保存中...' : '保存修改' }}
-              </button>
-            </form>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-value">{{ stats.sold }}</span>
+            <span class="stat-label">已售</span>
           </div>
-          
-          <!-- 账户统计 -->
-          <div class="stats-card">
-            <h3 class="card-title">我的统计</h3>
-            <div class="stats-grid">
-              <div class="stat-item">
-                <div class="stat-value">{{ stats.productCount || 0 }}</div>
-                <div class="stat-label">发布商品</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-value">{{ stats.orderCount || 0 }}</div>
-                <div class="stat-label">交易订单</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-value">{{ stats.messageCount || 0 }}</div>
-                <div class="stat-label">消息数量</div>
-              </div>
-            </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-value">{{ stats.favorites }}</span>
+            <span class="stat-label">收藏</span>
           </div>
         </div>
       </div>
+    </header>
+
+    <!-- 功能菜单列表 -->
+    <main class="menu-list">
+      <!-- 我的商品 -->
+      <section class="menu-group">
+        <router-link to="/products/create" class="menu-item highlight">
+          <span class="menu-icon publish-icon">+</span>
+          <span class="menu-text">发布新商品</span>
+          <svg class="arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9,18 15,12 9,6"/>
+          </svg>
+        </router-link>
+
+        <router-link to="/profile?tab=my-products" class="menu-item">
+          <span class="menu-icon">📦</span>
+          <span class="menu-text">我的发布</span>
+          <span class="menu-badge" v-if="stats.published > 0">{{ stats.published }}</span>
+          <svg class="arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9,18 15,12 9,6"/>
+          </svg>
+        </router-link>
+
+        <router-link to="/orders" class="menu-item">
+          <span class="menu-icon">🛒</span>
+          <span class="menu-text">我的订单</span>
+          <svg class="arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9,18 15,12 9,6"/>
+          </svg>
+        </router-link>
+
+        <router-link to="/favorites" class="menu-item">
+          <span class="menu-icon">❤️</span>
+          <span class="menu-text">我的收藏</span>
+          <svg class="arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9,18 15,12 9,6"/>
+          </svg>
+        </router-link>
+      </section>
+
+      <!-- 账户设置 -->
+      <section class="menu-group">
+        <button @click="goToSettings" class="menu-item">
+          <span class="menu-icon">⚙️</span>
+          <span class="menu-text">账号设置</span>
+          <svg class="arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9,18 15,12 9,6"/>
+          </svg>
+        </button>
+
+        <router-link to="/address" class="menu-item">
+          <span class="menu-icon">📍</span>
+          <span class="menu-text">收货地址</span>
+          <svg class="arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9,18 15,12 9,6"/>
+          </svg>
+        </router-link>
+
+        <a href="#" @click.prevent="showAbout = true" class="menu-item">
+          <span class="menu-icon">ℹ️</span>
+          <span class="menu-text">关于我们</span>
+          <svg class="arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9,18 15,12 9,6"/>
+          </svg>
+        </a>
+      </section>
+
+      <!-- 退出登录 -->
+      <section class="menu-group">
+        <button @click="handleLogout" class="menu-item danger">
+          <span class="menu-icon">🚪</span>
+          <span class="menu-text">退出登录</span>
+        </button>
+      </section>
+
+      <!-- 版本信息 -->
+      <p class="version-info">校园二手 v1.0.0</p>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
-import { userApi } from '../services/api'
-import NavBar from '../components/NavBar.vue'
 
+const router = useRouter()
 const authStore = useAuthStore()
-const loading = ref(true)
-const saving = ref(false)
-const successMessage = ref('')
-const errorMessage = ref('')
 
-const user = computed(() => authStore.user)
+const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIyMCIgZmlsbD0iI0UwRTBFRCIvPjxjaXJjbGUgY3g9IjIwIiBjeT0iMTciIHI9IjgiIGZpbGw9IndoaXRlIi8+PC9zdmc+'
 
-const formData = ref({
-  phone: '',
-  email: '',
-  school: '',
-  major: '',
-  wechat: '',
-  qq: ''
+const userInfo = ref({})
+const stats = reactive({
+  published: 0,
+  sold: 0,
+  favorites: 0
 })
 
-const stats = ref({
-  productCount: 0,
-  orderCount: 0,
-  messageCount: 0
-})
+const showAbout = ref(false)
 
-onMounted(() => {
-  if (user.value) {
-    formData.value.phone = user.value.phone || ''
-    formData.value.email = user.value.email || ''
-    formData.value.school = user.value.school || ''
-    formData.value.major = user.value.major || ''
-    formData.value.wechat = user.value.wechat || ''
-    formData.value.qq = user.value.qq || ''
+onMounted(async () => {
+  // 从store或localStorage获取用户信息
+  const storedUser = localStorage.getItem('user')
+  if (storedUser) {
+    try {
+      userInfo.value = JSON.parse(storedUser)
+    } catch (e) {
+      console.error('解析用户信息失败:', e)
+    }
   }
-  loading.value = false
+
+  if (authStore.user) {
+    userInfo.value = authStore.user
+  }
+
+  // 模拟统计数据（实际应从API获取）
+  stats.published = Math.floor(Math.random() * 10)
+  stats.sold = Math.floor(Math.random() * 5)
+  stats.favorites = Math.floor(Math.random() * 20)
 })
 
-function changeAvatar() {
+function handleAvatarClick() {
   alert('头像上传功能开发中...')
 }
 
-async function updateProfile() {
-  saving.value = true
-  successMessage.value = ''
-  errorMessage.value = ''
-  
-  try {
-    const response = await userApi.updateProfile(formData.value)
-    
-    if (response.code === 200 || response.success) {
-      successMessage.value = '个人资料更新成功！'
-      
-      const updatedUser = { ...user.value, ...formData.value }
-      localStorage.setItem('user', JSON.stringify(updatedUser))
-      authStore.user = updatedUser
-      
-      setTimeout(() => {
-        successMessage.value = ''
-      }, 3000)
-    } else {
-      errorMessage.value = response.message || '更新失败，请稍后重试'
-    }
-  } catch (error) {
-    console.error('更新个人资料失败:', error)
-    errorMessage.value = error.message || '网络错误，请稍后重试'
-  } finally {
-    saving.value = false
+function goToSettings() {
+  router.push('/settings')
+}
+
+function handleLogout() {
+  if (confirm('确定要退出登录吗？')) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    authStore.logout()
+    router.push('/login')
   }
 }
 </script>
 
 <style scoped>
-.profile {
+.profile-page {
   min-height: 100vh;
   background-color: #f5f5f5;
 }
 
-.main-content {
-  padding: 2rem 0;
+/* ============================================
+   用户信息头部
+   ============================================ */
+.profile-header {
+  position: relative;
+  padding-bottom: 20px;
 }
 
-.container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 0 1rem;
+.header-bg {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 180px;
+  background: linear-gradient(135deg, #FF6A00 0%, #FF8533 50%, #FFB347 100%);
 }
 
-.page-header {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-.page-title {
-  font-size: 2rem;
-  color: #333;
-  margin-bottom: 0.5rem;
-}
-
-.page-subtitle {
-  color: #666;
-  font-size: 1rem;
-}
-
-.loading-state {
-  text-align: center;
-  padding: 4rem;
-  color: #666;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #4CAF50;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.profile-container {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.avatar-card {
-  background: white;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  text-align: center;
-}
-
-.avatar-section {
+.user-info-card {
+  position: relative;
+  z-index: 1;
+  padding-top: 50px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
 }
 
-.avatar-wrapper {
+.avatar-section {
   position: relative;
-  width: 120px;
-  height: 120px;
+  margin-bottom: 14px;
+  cursor: pointer;
 }
 
-.avatar-image {
-  width: 120px;
-  height: 120px;
+.user-avatar {
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   object-fit: cover;
-  border: 4px solid #4CAF50;
+  border: 4px solid white;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  background-color: #e0e0e0;
 }
 
-.change-avatar-btn {
+.edit-avatar-badge {
   position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(76, 175, 80, 0.9);
+  bottom: 4px;
+  right: 0;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #FF6A00 0%, #FF8533 100%);
   color: white;
-  border: none;
-  padding: 0.4rem 0.8rem;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.change-avatar-btn:hover {
-  background: #45a049;
-}
-
-.username {
-  font-size: 1.5rem;
+  font-size: 11px;
   font-weight: 600;
+  border-radius: 10px;
+  border: 2px solid white;
+}
+
+.user-name {
+  font-size: 20px;
+  font-weight: 700;
   color: #333;
-  margin: 0;
+  margin: 0 0 4px 0;
 }
 
-.user-role {
-  color: #666;
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.info-card, .stats-card {
-  background: white;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.card-title {
-  font-size: 1.25rem;
-  color: #333;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #f0f0f0;
-}
-
-.info-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
-}
-
-@media (max-width: 768px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-group.full-width {
-  grid-column: 1 / -1;
-}
-
-.form-label {
-  font-weight: 500;
-  color: #555;
-  font-size: 0.95rem;
-}
-
-.form-input {
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.2s;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #4CAF50;
-}
-
-.form-input:disabled {
-  background-color: #f5f5f5;
-  cursor: not-allowed;
-}
-
-.form-hint {
-  font-size: 0.85rem;
+.user-id {
+  font-size: 13px;
   color: #999;
-  margin: 0;
+  margin: 0 0 8px 0;
 }
 
-.alert {
-  padding: 1rem;
-  border-radius: 8px;
-  font-size: 0.95rem;
-}
-
-.alert-success {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.alert-error {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.btn-lg {
-  padding: 0.875rem 2rem;
-  font-size: 1rem;
-  font-weight: 600;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-primary {
-  background-color: #4CAF50;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: #45a049;
-  transform: translateY(-1px);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
+.user-bio {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 16px 0;
+  max-width: 260px;
   text-align: center;
+  line-height: 1.5;
+}
+
+/* 统计数据 */
+.stats-row {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  background-color: #fff;
+  padding: 18px 40px;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
 .stat-item {
-  padding: 1.5rem;
-  background: #f9f9f9;
-  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 
 .stat-value {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #4CAF50;
-  margin-bottom: 0.5rem;
+  font-size: 22px;
+  font-weight: 800;
+  color: #FF6A00;
 }
 
 .stat-label {
-  color: #666;
-  font-size: 0.95rem;
+  font-size: 12px;
+  color: #999;
+  font-weight: 500;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 32px;
+  background-color: #f0f0f0;
+}
+
+/* ============================================
+   菜单列表
+   ============================================ */
+.menu-list {
+  padding: 12px 16px;
+}
+
+.menu-group {
+  background-color: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  text-decoration: none;
+  color: #333;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid #fafafa;
+  cursor: pointer;
+  width: 100%;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  text-align: left;
+  font-size: 15px;
+  font-family: inherit;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-item:active {
+  background-color: #fafafa;
+}
+
+.menu-item.highlight {
+  background: linear-gradient(135deg, #FFF7E6 0%, #FFFFFF 100%);
+  font-weight: 600;
+  color: #FA8C16;
+}
+
+.publish-icon {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #FF6A00 0%, #FF8533 100%);
+  color: white;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: 300;
+}
+
+.menu-icon {
+  font-size: 20px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.menu-text {
+  flex: 1;
+  font-size: 15px;
+}
+
+.menu-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 7px;
+  background-color: #FF4D4F;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arrow-right {
+  width: 16px;
+  height: 16px;
+  color: #ccc;
+  flex-shrink: 0;
+}
+
+.menu-item.danger .menu-text {
+  color: #FF4D4F;
+}
+
+.version-info {
+  text-align: center;
+  font-size: 12px;
+  color: #ccc;
+  margin-top: 24px;
 }
 </style>

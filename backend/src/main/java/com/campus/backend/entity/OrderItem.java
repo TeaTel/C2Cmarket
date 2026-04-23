@@ -1,61 +1,40 @@
 package com.campus.backend.entity;
 
+import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 订单项实体类
+ * 对应数据库 order_items 表
+ */
+@Data
 public class OrderItem {
+
+    /** 订单项ID */
     private Long id;
+
+    /** 所属订单ID */
     private Long orderId;
+
+    /** 商品ID */
     private Long productId;
-    private Integer quantity;
+
+    /** 商品名称 (下单时快照) */
+    private String productName;
+
+    /** 商品图片 (下单时快照) */
+    private String productImage;
+
+    /** 下单时单价 (快照) */
     private BigDecimal price;
+
+    /** 数量 */
+    private Integer quantity;
+
+    /** 小计金额 */
+    private BigDecimal subtotal;
+
+    /** 创建时间 */
     private LocalDateTime createdAt;
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getOrderId() {
-        return orderId;
-    }
-
-    public void setOrderId(Long orderId) {
-        this.orderId = orderId;
-    }
-
-    public Long getProductId() {
-        return productId;
-    }
-
-    public void setProductId(Long productId) {
-        this.productId = productId;
-    }
-
-    public Integer getQuantity() {
-        return quantity;
-    }
-
-    public void setQuantity(Integer quantity) {
-        this.quantity = quantity;
-    }
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public void setPrice(BigDecimal price) {
-        this.price = price;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
 }

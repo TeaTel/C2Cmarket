@@ -1,105 +1,75 @@
 package com.campus.backend.dto;
 
+import lombok.Data;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 
+/**
+ * 商品信息VO (返回前端)
+ */
+@Data
 public class ProductVO {
+
     private Long id;
     private String name;
     private String description;
     private BigDecimal price;
-    private Integer stock;
+    private BigDecimal originalPrice;
     private Long categoryId;
     private String categoryName;
     private Long sellerId;
     private String sellerName;
-    private String imageUrl;
+    private String sellerAvatar;
+    private String sellerSchool;
+    private Integer conditionLevel;
+    private String conditionText;
+    private List<String> imageUrls;
+    private String coverImage;
     private Integer status;
+    private String statusText;
+    private Integer viewCount;
+    private Integer likeCount;
+    private Boolean isFavorited;
+    private String location;
+    private Integer deliveryMethod;
+    private String deliveryMethodText;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
-    public Long getId() {
-        return id;
+    /** 获取成色文本 */
+    public String getConditionText() {
+        if (conditionLevel == null) return "未设置";
+        return switch (conditionLevel) {
+            case 1 -> "全新";
+            case 2 -> "几乎全新";
+            case 3 -> "轻微使用痕迹";
+            case 4 -> "明显使用痕迹";
+            case 5 -> "一般";
+            default -> "未设置";
+        };
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    /** 获取状态文本 */
+    public String getStatusText() {
+        if (status == null) return "未知";
+        return switch (status) {
+            case 0 -> "已下架";
+            case 1 -> "在售";
+            case 2 -> "已售出";
+            case 3 -> "预约中";
+            default -> "未知";
+        };
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public void setPrice(BigDecimal price) {
-        this.price = price;
-    }
-
-    public Integer getStock() {
-        return stock;
-    }
-
-    public void setStock(Integer stock) {
-        this.stock = stock;
-    }
-
-    public Long getCategoryId() {
-        return categoryId;
-    }
-
-    public void setCategoryId(Long categoryId) {
-        this.categoryId = categoryId;
-    }
-
-    public String getCategoryName() {
-        return categoryName;
-    }
-
-    public void setCategoryName(String categoryName) {
-        this.categoryName = categoryName;
-    }
-
-    public Long getSellerId() {
-        return sellerId;
-    }
-
-    public void setSellerId(Long sellerId) {
-        this.sellerId = sellerId;
-    }
-
-    public String getSellerName() {
-        return sellerName;
-    }
-
-    public void setSellerName(String sellerName) {
-        this.sellerName = sellerName;
-    }
-
-    public String getImageUrl() {
-        return imageUrl;
-    }
-
-    public void setImageUrl(String imageUrl) {
-        this.imageUrl = imageUrl;
-    }
-
-    public Integer getStatus() {
-        return status;
-    }
-
-    public void setStatus(Integer status) {
-        this.status = status;
+    /** 获取交付方式文本 */
+    public String getDeliveryMethodText() {
+        if (deliveryMethod == null) return "未设置";
+        return switch (deliveryMethod) {
+            case 1 -> "自提";
+            case 2 -> "快递";
+            case 3 -> "均可";
+            default -> "未设置";
+        };
     }
 }

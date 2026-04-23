@@ -1,89 +1,90 @@
 package com.campus.backend.controller;
 
 import com.campus.backend.common.Result;
-import com.campus.backend.common.annotation.ApiVersion;
+import com.campus.backend.common.SecurityUtils;
 import com.campus.backend.config.JwtUtil;
-import com.campus.backend.dto.UserLoginDTO;
-import com.campus.backend.dto.UserRegisterDTO;
-import com.campus.backend.dto.UserVO;
+import com.campus.backend.dto.*;
+import com.campus.backend.entity.User;
 import com.campus.backend.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 用户管理控制器
+ */
+@Slf4j
 @RestController
 @RequestMapping("/api/users")
-@Tag(name = "用户管理", description = "用户注册、登录、信息管理相关接口")
-@ApiVersion(value = "v1", supportedVersions = {"v1", "v2"}, description = "用户管理API")
-@Slf4j
+@Tag(name = "用户管理", description = "注册、登录、个人信息")
+@RequiredArgsConstructor
 public class UserController {
 
-    @Autowired(required = false)
-    private UserService userService;
-
-    @Autowired(required = false)
-    private JwtUtil jwtUtil;
+    private final UserService userService;
+    private final JwtUtil jwtUtil;
 
     @PostMapping("/register")
-    @Operation(summary = "用户注册", description = "新用户注册接口")
-    public Result<Map<String, Object>> register(@Valid @RequestBody UserRegisterDTO registerDTO) {
-        checkServices();
-        UserVO userVO = userService.register(registerDTO);
-
-        // 生成JWT令牌
+    @Operation(summary = "用户注册")
+    public Result<Map<String, Object>> register(@Valid @RequestBody UserRegisterDTO dto) {
+        UserVO userVO = userService.register(dto);
         String token = jwtUtil.generateToken(userVO.getId(), userVO.getUsername());
 
         Map<String, Object> result = new HashMap<>();
         result.put("user", userVO);
         result.put("token", token);
-
-        return Result.success(result);
+        return Result.success("注册成功", result);
     }
 
     @PostMapping("/login")
-    @Operation(summary = "用户登录", description = "用户登录接口")
-    public Result<Map<String, Object>> login(@Valid @RequestBody UserLoginDTO loginDTO) {
-        checkServices();
-        UserVO userVO = userService.login(loginDTO.getUsername(), loginDTO.getPassword());
-
-        // 生成JWT令牌
+    @Operation(summary = "用户登录")
+    public Result<Map<String, Object>> login(@Valid @RequestBody UserLoginDTO dto) {
+        UserVO userVO = userService.login(dto.getUsername(), dto.getPassword());
         String token = jwtUtil.generateToken(userVO.getId(), userVO.getUsername());
 
         Map<String, Object> result = new HashMap<>();
         result.put("user", userVO);
         result.put("token", token);
-
-        return Result.success(result);
+        return Result.success("登录成功", result);
     }
 
     @GetMapping("/info")
-    @Operation(summary = "获取用户信息", description = "获取当前登录用户信息")
+    @Operation(summary = "获取当前用户信息")
     public Result<UserVO> getUserInfo() {
-        checkServices();
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        // 通过用户名获取用户信息
-        UserVO userVO = userService.getUserInfoByUsername(username);
-        return Result.success(userVO);
+        return Result.success(userService.getUserInfo(SecurityUtils.getCurrentUserId()));
     }
 
-    private void checkServices() {
-        if (userService == null || jwtUtil == null) {
-            log.error("UserService or JwtUtil is null! Database connection may have failed.");
-            throw new RuntimeException("Service unavailable - check database connection");
-        }
+    @PutMapping("/profile")
+    @Operation(summary = "更新个人资料")
+    public Result<UserVO> updateProfile(@RequestBody User profileData) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        // 只允许修改安全字段
+        User safeData = new User();
+        safeData.setNickname(profileData.getNickname());
+        safeData.setAvatar(profileData.getAvatar());
+        safeData.setGender(profileData.getGender());
+        safeData.setSchool(profileData.getSchool());
+        safeData.setMajor(profileData.getMajor());
+        safeData.setGrade(profileData.getGrade());
+        safeData.setWechat(profileData.getWechat());
+        safeData.setQq(profileData.getQq());
+        safeData.setBio(profileData.getBio());
+        return Result.success(userService.updateProfile(userId, safeData));
+    }
+
+    @PutMapping("/password")
+    @Operation(summary = "修改密码")
+    public Result<Void> updatePassword(@RequestBody Map<String, String> body) {
+        userService.updatePassword(
+                SecurityUtils.getCurrentUserId(),
+                body.get("oldPassword"),
+                body.get("newPassword")
+        );
+        return Result.success("密码修改成功");
     }
 }

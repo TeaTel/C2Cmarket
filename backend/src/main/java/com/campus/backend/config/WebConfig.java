@@ -1,22 +1,20 @@
 package com.campus.backend.config;
 
-import com.campus.backend.common.interceptor.ApiVersionInterceptor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+/**
+ * Web MVC配置
+ * 确保静态资源(前端Vue打包文件)可正常访问
+ */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-    
-    @Autowired
-    private ApiVersionInterceptor apiVersionInterceptor;
-    
+
     @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(apiVersionInterceptor)
-                .addPathPatterns("/api/**")
-                .excludePathPatterns("/api-docs/**", "/swagger-ui/**", "/h2-console/**");
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // 静态资源映射 - 前端Vue.js打包后的文件
+        registry.addResourceHandler("/**")
+                .addResourceLocations("classpath:/static/");
     }
 }

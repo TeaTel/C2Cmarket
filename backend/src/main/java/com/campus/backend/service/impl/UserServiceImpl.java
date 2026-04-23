@@ -8,142 +8,123 @@ import com.campus.backend.exception.BusinessException;
 import com.campus.backend.exception.NotFoundException;
 import com.campus.backend.mapper.UserMapper;
 import com.campus.backend.service.UserService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+/**
+ * 用户服务实现
+ */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-    @Autowired
-    private UserMapper userMapper;
-    
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
-    public UserVO register(UserRegisterDTO registerDTO) {
+    public UserVO register(UserRegisterDTO dto) {
         // 检查用户名是否已存在
-        User existingUser = userMapper.selectByUsername(registerDTO.getUsername());
-        if (existingUser != null) {
+        if (userMapper.selectByUsername(dto.getUsername()) != null) {
             throw new BusinessException(ErrorCode.USER_ALREADY_EXISTS, "用户名已存在");
         }
-        
-        // 检查手机号是否已存在
-        existingUser = userMapper.selectByPhone(registerDTO.getPhone());
-        if (existingUser != null) {
+        // 检查手机号
+        if (userMapper.selectByPhone(dto.getPhone()) != null) {
             throw new BusinessException(ErrorCode.USER_ALREADY_EXISTS, "手机号已注册");
         }
-        
-        // 创建用户实体
+
         User user = new User();
-        BeanUtils.copyProperties(registerDTO, user);
-        user.setPasswordHash(passwordEncoder.encode(registerDTO.getPassword()));
-        user.setCreatedAt(LocalDateTime.now());
-        user.setUpdatedAt(LocalDateTime.now());
-        // 设置默认头像
-        if (user.getAvatar() == null) {
-            user.setAvatar("");
+        BeanUtils.copyProperties(dto, user);
+        user.setPasswordHash(passwordEncoder.encode(dto.getPassword()));
+        if (user.getIsStudent() == null) {
+            user.setIsStudent(true);
         }
-        
-        // 插入数据库
         userMapper.insert(user);
-        
-        // 返回用户信息
+        log.info("新用户注册成功: username={}", user.getUsername());
         return convertToVO(user);
     }
 
     @Override
     public UserVO login(String username, String password) {
-        // 查找用户
         User user = userMapper.selectByUsername(username);
-        if (user == null) {
+        if (user == null || !passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "用户名或密码错误");
         }
-        
-        // 如果提供了密码，验证密码
-        if (password != null && !password.isEmpty()) {
-            if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-                throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "用户名或密码错误");
-            }
+        if (user.getStatus() != null && user.getStatus() != 1) {
+            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED, "账号已被禁用");
         }
-        
-        // 检查用户状态
-        if ("banned".equals(user.getStatus())) {
-            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED, "账号已被封禁");
-        }
-        
+
+        // 更新最后登录时间
+        userMapper.updateLastLogin(user.getId(), LocalDateTime.now());
         return convertToVO(user);
     }
 
     @Override
     public UserVO getUserInfo(Long userId) {
-        User user = userMapper.selectById(userId);
-        if (user == null) {
-            throw new NotFoundException("用户", userId);
-        }
-        return convertToVO(user);
+        return convertToVO(getUserEntityById(userId));
     }
 
     @Override
     public UserVO getUserInfoByUsername(String username) {
         User user = userMapper.selectByUsername(username);
         if (user == null) {
-            throw new RuntimeException("用户不存在");
+            throw new NotFoundException("用户不存在: " + username);
         }
         return convertToVO(user);
     }
 
     @Override
     @Transactional
+    public UserVO updateProfile(Long userId, User profileData) {
+        User existing = getUserEntityById(userId);
+        // 只更新允许修改的字段
+        existing.setNickname(profileData.getNickname());
+        existing.setAvatar(profileData.getAvatar());
+        existing.setGender(profileData.getGender());
+        existing.setSchool(profileData.getSchool());
+        existing.setMajor(profileData.getMajor());
+        existing.setGrade(profileData.getGrade());
+        existing.setWechat(profileData.getWechat());
+        existing.setQq(profileData.getQq());
+        existing.setBio(profileData.getBio());
+        userMapper.updateProfile(existing);
+        return convertToVO(existing);
+    }
+
+    @Override
+    @Transactional
     public void updatePassword(Long userId, String oldPassword, String newPassword) {
-        User user = userMapper.selectById(userId);
-        if (user == null) {
-            throw new RuntimeException("用户不存在");
-        }
-        
-        // 验证旧密码
+        User user = getUserEntityById(userId);
         if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
-            throw new RuntimeException("旧密码错误");
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "旧密码错误");
         }
-        
-        // 更新密码
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userMapper.updatePassword(user);
     }
 
     @Override
-    @Transactional
-    public void updateAvatar(Long userId, String avatarUrl) {
+    public User getUserEntityById(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
-            throw new RuntimeException("用户不存在");
+            throw new NotFoundException("用户", userId);
         }
-        
-        user.setAvatar(avatarUrl);
-        userMapper.updateAvatar(user);
+        return user;
     }
-    
+
+    /**
+     * Entity -> VO 转换 (排除敏感字段)
+     */
     private UserVO convertToVO(User user) {
-        UserVO userVO = new UserVO();
-        // 手动复制字段，避免密码等敏感信息泄露
-        userVO.setId(user.getId());
-        userVO.setUsername(user.getUsername());
-        userVO.setPhone(user.getPhone());
-        userVO.setWechat(user.getWechat());
-        userVO.setQq(user.getQq());
-        userVO.setAvatar(user.getAvatar());
-        userVO.setSchool(user.getSchool());
-        userVO.setMajor(user.getMajor());
-        userVO.setIsStudent(user.getIsStudent());
-        userVO.setStatus(user.getStatus());
-        userVO.setCreatedAt(user.getCreatedAt());
-        // 注意：不复制passwordHash字段，这是敏感信息
-        return userVO;
+        UserVO vo = new UserVO();
+        BeanUtils.copyProperties(user, vo);
+        // 不复制 passwordHash 等敏感信息
+        return vo;
     }
 }

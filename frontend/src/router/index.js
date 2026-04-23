@@ -4,71 +4,95 @@ const routes = [
   {
     path: '/',
     name: 'Home',
-    component: () => import('../views/Home.vue')
+    component: () => import('../views/Home.vue'),
+    meta: { title: '首页', showTabBar: true }
   },
   {
     path: '/login',
     name: 'Login',
-    component: () => import('../views/Login.vue')
+    component: () => import('../views/Login.vue'),
+    meta: { title: '登录' }
   },
   {
     path: '/register',
     name: 'Register',
-    component: () => import('../views/Register.vue')
+    component: () => import('../views/Register.vue'),
+    meta: { title: '注册' }
   },
   {
     path: '/products',
     name: 'Products',
-    component: () => import('../views/Products.vue')
+    component: () => import('../views/Products.vue'),
+    meta: { title: '商品列表', showTabBar: true }
   },
   {
     path: '/products/:id',
     name: 'ProductDetail',
-    component: () => import('../views/ProductDetail.vue')
+    component: () => import('../views/ProductDetail.vue'),
+    meta: { title: '商品详情' }
   },
   {
     path: '/products/create',
     name: 'CreateProduct',
     component: () => import('../views/CreateProduct.vue'),
-    meta: { 
+    meta: {
       requiresAuth: true,
       title: '发布商品'
+    }
+  },
+  {
+    path: '/categories',
+    name: 'Categories',
+    component: () => import('../views/Categories.vue'),
+    meta: { title: '分类浏览', showTabBar: true }
+  },
+  {
+    path: '/messages',
+    name: 'Messages',
+    component: () => import('../views/Messages.vue'),
+    meta: {
+      requiresAuth: true,
+      title: '消息',
+      showTabBar: true
+    }
+  },
+  // 聊天室页面（核心新功能）
+  {
+    path: '/chat/:userId',
+    name: 'ChatRoom',
+    component: () => import('../views/ChatRoom.vue'),
+    meta: {
+      requiresAuth: true,
+      title: '聊天'
+    }
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('../views/Profile.vue'),
+    meta: {
+      requiresAuth: true,
+      title: '我的',
+      showTabBar: true
     }
   },
   {
     path: '/orders',
     name: 'Orders',
     component: () => import('../views/Orders.vue'),
-    meta: { 
+    meta: {
       requiresAuth: true,
       title: '我的订单'
     }
   },
   {
-    path: '/messages',
-    name: 'Messages',
-    component: () => import('../views/Messages.vue'),
-    meta: { 
-      requiresAuth: true,
-      title: '消息中心'
-    }
-  },
-  {
-    path: '/categories',
-    name: 'Categories',
-    component: () => import('../views/Categories.vue')
-  },
-  {
-    path: '/profile',
-    name: 'Profile',
-    component: () => import('../views/Profile.vue'),
-    meta: { requiresAuth: true, title: '个人中心' }
-  },
-  {
     path: '/settings',
     name: 'Settings',
     component: () => import('../views/Settings.vue'),
-    meta: { requiresAuth: true, title: '设置' }
+    meta: {
+      requiresAuth: true,
+      title: '设置'
+    }
   },
   // 404页面
   {
@@ -96,8 +120,10 @@ const publicPaths = ['/', '/login', '/register', '/products', '/products/:id', '
 // 全局前置守卫
 router.beforeEach((to, from, next) => {
   // 设置页面标题
-  document.title = to.meta.title ? `${to.meta.title} - 校园二手交易平台` : '校园二手交易平台'
-  
+  document.title = to.meta.title
+    ? `${to.meta.title} - 校园二手`
+    : '校园二手交易平台'
+
   // 检查当前路径是否在白名单中
   const isPublicPath = publicPaths.some(path => {
     if (path.includes(':')) {
@@ -106,51 +132,47 @@ router.beforeEach((to, from, next) => {
     }
     return to.path === path
   })
-  
+
   // 公开路径直接放行
   if (isPublicPath) {
-    // 已登录用户访问登录/注册页，重定向到首页
     const token = localStorage.getItem('token')
-    
-    // 额外验证token有效性（防止demo_token）
+
+    // 已登录用户访问登录/注册页，重定向到首页
     if ((to.path === '/login' || to.path === '/register') && token && isValidToken(token)) {
       return next({ path: '/' })
     }
     return next()
   }
-  
+
   // 需要认证的页面
   const token = localStorage.getItem('token')
-  
+
   if (to.meta.requiresAuth && (!token || !isValidToken(token))) {
-    // 无效token或未登录，先清除可能存在的无效数据
+    // 无效token或未登录
     if (token && !isValidToken(token)) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
     }
-    
-    // 跳转到登录页
+
     return next({
       path: '/login',
       query: { redirect: to.fullPath }
     })
   }
-  
+
   next()
 })
 
 // 验证token有效性的辅助函数
 function isValidToken(token) {
   if (!token) return false
-  
+
   // 拒绝演示模式的假token
   if (token.startsWith('demo_token_') || token.includes('demo')) {
     return false
   }
-  
-  // JWT token基本格式验证（可选）
-  // JWT通常由三部分组成，用.分隔
-  // 这里只做基本长度检查
+
+  // JWT token基本格式验证
   return token.length > 10
 }
 

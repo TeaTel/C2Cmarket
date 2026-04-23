@@ -83,9 +83,13 @@ temp/
 .env-setup/frontend/.vitepress/cache
 
 # 后端特定
+backend/target/
 .env-setup/backend/.settings/
 .env-setup/backend/bin/
 .env-setup/backend/.metadata/
+
+# 归档目录（废弃文件）
+_archive/
 
 # 数据库文件
 *.db

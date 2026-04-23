@@ -1,73 +1,45 @@
 package com.campus.backend.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
+import java.util.List;
 
+/**
+ * 更新商品请求DTO
+ */
+@Data
 public class ProductUpdateDTO {
-    
-    @NotBlank(message = "商品名称不能为空")
+
+    /** 商品标题 */
     private String name;
-    
+
+    /** 商品描述 */
     private String description;
-    
-    @NotNull(message = "价格不能为空")
+
+    /** 现售价格 */
     @Positive(message = "价格必须大于0")
     private BigDecimal price;
-    
-    @NotNull(message = "分类ID不能为空")
+
+    /** 原价/全新价格 */
+    private BigDecimal originalPrice;
+
+    /** 分类ID */
     private Long categoryId;
-    
-    private String status;
-    
-    private String imageUrl;
 
-    public String getName() {
-        return name;
-    }
+    /** 成色等级 */
+    private Integer conditionLevel;
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    /** 商品图片URL列表 */
+    private List<String> imageUrls;
 
-    public String getDescription() {
-        return description;
-    }
+    /** 封面图片URL */
+    private String coverImage;
 
-    public void setDescription(String description) {
-        this.description = description;
-    }
+    /** 交易地点 */
+    private String location;
 
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public void setPrice(BigDecimal price) {
-        this.price = price;
-    }
-
-    public Long getCategoryId() {
-        return categoryId;
-    }
-
-    public void setCategoryId(Long categoryId) {
-        this.categoryId = categoryId;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public String getImageUrl() {
-        return imageUrl;
-    }
-
-    public void setImageUrl(String imageUrl) {
-        this.imageUrl = imageUrl;
-    }
+    /** 交付方式 */
+    private Integer deliveryMethod;
 }

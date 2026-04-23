@@ -54,6 +54,10 @@ public class Result<T> {
         return new Result<>(ErrorCode.SUCCESS.getCode(), message, data);
     }
 
+    public static Result<Void> success(String message) {
+        return new Result<>(ErrorCode.SUCCESS.getCode(), message, null);
+    }
+
     public static <T> Result<T> error() {
         return new Result<>(ErrorCode.INTERNAL_SERVER_ERROR.getCode(), ErrorCode.INTERNAL_SERVER_ERROR.getMessage(), null);
     }

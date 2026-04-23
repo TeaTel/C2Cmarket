@@ -2,202 +2,233 @@ package com.campus.backend.service.impl;
 
 import com.campus.backend.dto.OrderCreateDTO;
 import com.campus.backend.dto.OrderVO;
+import com.campus.backend.dto.UserVO;
 import com.campus.backend.entity.Order;
 import com.campus.backend.entity.OrderItem;
 import com.campus.backend.entity.Product;
+import com.campus.backend.common.ErrorCode;
+import com.campus.backend.exception.BusinessException;
+import com.campus.backend.exception.NotFoundException;
 import com.campus.backend.mapper.OrderMapper;
 import com.campus.backend.mapper.ProductMapper;
 import com.campus.backend.mapper.UserMapper;
 import com.campus.backend.service.OrderService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+/**
+ * 订单服务实现 (不含支付功能)
+ */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
-    @Autowired
-    private OrderMapper orderMapper;
-    
-    @Autowired
-    private ProductMapper productMapper;
-    
-    @Autowired
-    private UserMapper userMapper;
+    private final OrderMapper orderMapper;
+    private final ProductMapper productMapper;
+    private final UserMapper userMapper;
 
     @Override
     @Transactional
-    public OrderVO createOrder(OrderCreateDTO createDTO, Long buyerId) {
+    public OrderVO createOrder(OrderCreateDTO dto, Long buyerId) {
+        // 验证卖家存在
+        if (userMapper.selectById(dto.getSellerId()) == null) {
+            throw new NotFoundException("卖家", dto.getSellerId());
+        }
+        // 不能自己给自己下单
+        if (buyerId.equals(dto.getSellerId())) {
+            throw new BusinessException(ErrorCode.ORDER_STATUS_ERROR, "不能向自己下单");
+        }
+
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        List<OrderItem> items = new ArrayList<>();
+
+        for (OrderCreateDTO.OrderItemDTO itemDto : dto.getItems()) {
+            Product product = productMapper.selectById(itemDto.getProductId());
+            if (product == null) {
+                throw new NotFoundException("商品", itemDto.getProductId());
+            }
+            if (!product.getSellerId().equals(dto.getSellerId())) {
+                throw new BusinessException(ErrorCode.ORDER_STATUS_ERROR, "商品不属于指定卖家");
+            }
+            if (product.getStatus() != 1) {
+                throw new BusinessException(ErrorCode.PRODUCT_UNAVAILABLE, "商品[" + product.getName() + "]当前不可购买");
+            }
+
+            BigDecimal subtotal = product.getPrice().multiply(BigDecimal.valueOf(itemDto.getQuantity()));
+            totalAmount = totalAmount.add(subtotal);
+
+            OrderItem item = new OrderItem();
+            item.setProductId(itemDto.getProductId());
+            item.setProductName(product.getName());
+            item.setProductImage(product.getCoverImage());
+            item.setPrice(product.getPrice());
+            item.setQuantity(itemDto.getQuantity());
+            item.setSubtotal(subtotal);
+            items.add(item);
+        }
+
         // 创建订单
         Order order = new Order();
+        order.setOrderNo(generateOrderNo());
         order.setBuyerId(buyerId);
-        order.setSellerId(createDTO.getSellerId());
-        order.setPaymentMethod(createDTO.getPaymentMethod());
-        order.setAddress(createDTO.getAddress());
-        order.setCreatedAt(LocalDateTime.now());
-        order.setUpdatedAt(LocalDateTime.now());
-        
-        // 计算总金额并创建订单项
-        BigDecimal totalAmount = BigDecimal.ZERO;
-        List<OrderItem> orderItems = new ArrayList<>();
-        
-        for (OrderCreateDTO.OrderItemDTO itemDTO : createDTO.getItems()) {
-            Product product = productMapper.selectById(itemDTO.getProductId());
-            if (product == null) {
-                throw new RuntimeException("商品不存在: " + itemDTO.getProductId());
-            }
-            
-            if (!"active".equals(product.getStatus())) {
-                throw new RuntimeException("商品不可用: " + product.getName());
-            }
-            
-            // 检查商品是否属于指定卖家
-            if (!product.getSellerId().equals(createDTO.getSellerId())) {
-                throw new RuntimeException("商品不属于指定卖家");
-            }
-            
-            BigDecimal itemTotal = product.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
-            totalAmount = totalAmount.add(itemTotal);
-            
-            OrderItem orderItem = new OrderItem();
-            orderItem.setProductId(itemDTO.getProductId());
-            orderItem.setQuantity(itemDTO.getQuantity());
-            orderItem.setPrice(product.getPrice());
-            orderItem.setCreatedAt(LocalDateTime.now());
-            orderItems.add(orderItem);
-        }
-        
+        order.setSellerId(dto.getSellerId());
         order.setTotalAmount(totalAmount);
-        
-        // 保存订单
+        order.setStatus("pending"); // 待确认
+        order.setRemark(dto.getRemark());
+        order.setAddress(dto.getAddress());
         orderMapper.insert(order);
-        
-        // 保存订单项
-        for (OrderItem orderItem : orderItems) {
-            orderItem.setOrderId(order.getId());
-            orderMapper.insertOrderItem(orderItem);
+
+        // 创建订单项
+        for (OrderItem item : items) {
+            item.setOrderId(order.getId());
+            orderMapper.insertOrderItem(item);
         }
-        
+
+        log.info("订单创建成功: orderNo={}, buyer={}, amount={}", order.getOrderNo(), buyerId, totalAmount);
         return convertToVO(order);
     }
 
     @Override
     public OrderVO getOrderDetail(Long orderId, Long userId) {
-        Order order = orderMapper.selectById(orderId);
-        if (order == null) {
-            throw new RuntimeException("订单不存在");
-        }
-        
-        // 检查权限：只有买家或卖家可以查看订单
-        if (!order.getBuyerId().equals(userId) && !order.getSellerId().equals(userId)) {
-            throw new RuntimeException("无权查看此订单");
-        }
-        
+        Order order = getOrderAndCheckAccess(orderId, userId);
         return convertToVO(order);
     }
 
     @Override
     public List<OrderVO> getBuyerOrders(Long buyerId) {
-        List<Order> orders = orderMapper.selectByBuyerId(buyerId);
-        return orders.stream().map(this::convertToVO).collect(Collectors.toList());
+        return orderMapper.selectByBuyerId(buyerId).stream()
+                .map(this::convertToVO).collect(Collectors.toList());
     }
 
     @Override
     public List<OrderVO> getSellerOrders(Long sellerId) {
-        List<Order> orders = orderMapper.selectBySellerId(sellerId);
-        return orders.stream().map(this::convertToVO).collect(Collectors.toList());
+        return orderMapper.selectBySellerId(sellerId).stream()
+                .map(this::convertToVO).collect(Collectors.toList());
     }
 
     @Override
     @Transactional
-    public void updateOrderStatus(Long orderId, String status, Long userId) {
+    public void updateOrderStatus(Long orderId, String status, Long operatorId) {
         Order order = orderMapper.selectById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new NotFoundException("订单", orderId);
         }
-        
-        // 检查权限：只有卖家可以更新订单状态
-        if (!order.getSellerId().equals(userId)) {
-            throw new RuntimeException("无权更新此订单状态");
+        if (!order.getSellerId().equals(operatorId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "只有卖家可以操作此订单");
         }
-        
-        orderMapper.updateStatus(orderId, status);
+        validateStatusTransition(order.getStatus(), status);
+
+        LocalDateTime completedAt = "completed".equalsIgnoreCase(status) ? LocalDateTime.now() : null;
+        orderMapper.updateStatus(orderId, status, completedAt);
     }
 
     @Override
     @Transactional
-    public void cancelOrder(Long orderId, Long userId) {
+    public void cancelOrder(Long orderId, Long buyerId) {
         Order order = orderMapper.selectById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new NotFoundException("订单", orderId);
         }
-        
-        // 检查权限：只有买家可以取消订单
-        if (!order.getBuyerId().equals(userId)) {
-            throw new RuntimeException("无权取消此订单");
+        if (!order.getBuyerId().equals(buyerId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "只有买家可以取消此订单");
         }
-        
-        // 只能取消待处理的订单
-        if (!"pending".equals(order.getStatus())) {
-            throw new RuntimeException("只能取消待处理的订单");
+        if (!"pending".equalsIgnoreCase(order.getStatus())) {
+            throw new BusinessException(ErrorCode.ORDER_STATUS_ERROR, "只能取消待确认的订单");
         }
-        
-        orderMapper.updateStatus(orderId, "cancelled");
+        orderMapper.updateStatus(orderId, "cancelled", null);
     }
 
     @Override
     @Transactional
-    public void confirmOrder(Long orderId, Long userId) {
+    public void confirmOrder(Long orderId, Long buyerId) {
         Order order = orderMapper.selectById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new NotFoundException("订单", orderId);
         }
-        
-        // 检查权限：只有买家可以确认收货
-        if (!order.getBuyerId().equals(userId)) {
-            throw new RuntimeException("无权确认此订单");
+        if (!order.getBuyerId().equals(buyerId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "只有买家可以确认完成交易");
         }
-        
-        // 只能确认已发货的订单
-        if (!"shipped".equals(order.getStatus())) {
-            throw new RuntimeException("只能确认已发货的订单");
+        if (!"pending".equalsIgnoreCase(order.getStatus())) {
+            throw new BusinessException(ErrorCode.ORDER_STATUS_ERROR, "当前状态无法确认完成");
         }
-        
-        orderMapper.updateStatus(orderId, "completed");
+        orderMapper.updateStatus(orderId, "completed", LocalDateTime.now());
     }
-    
+
+    /** 验证状态流转合法性 */
+    private void validateStatusTransition(String current, String target) {
+        boolean valid = switch (target.toLowerCase()) {
+            case "completed" -> "pending".equalsIgnoreCase(current);
+            case "cancelled" -> "pending".equalsIgnoreCase(current);
+            default -> false;
+        };
+        if (!valid) {
+            throw new BusinessException(ErrorCode.ORDER_STATUS_ERROR,
+                    "不允许从 [" + current + "] 变更为 [" + target + "]");
+        }
+    }
+
+    /** 权限检查 */
+    private Order getOrderAndCheckAccess(Long orderId, Long userId) {
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new NotFoundException("订单", orderId);
+        }
+        if (!order.getBuyerId().equals(userId) && !order.getSellerId().equals(userId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "无权查看此订单");
+        }
+        return order;
+    }
+
+    /** 生成订单编号 */
+    private String generateOrderNo() {
+        return "ORD" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+                + String.format("%04d", ThreadLocalRandom.current().nextInt(10000));
+    }
+
+    /** Entity -> VO */
     private OrderVO convertToVO(Order order) {
         OrderVO vo = new OrderVO();
         BeanUtils.copyProperties(order, vo);
-        
-        // 获取订单项
-        List<OrderItem> orderItems = orderMapper.selectOrderItemsByOrderId(order.getId());
-        List<OrderVO.OrderItemVO> itemVOs = orderItems.stream().map(item -> {
+
+        // 订单项
+        List<OrderItem> items = orderMapper.selectOrderItemsByOrderId(order.getId());
+        List<OrderVO.OrderItemVO> itemVOs = items.stream().map(item -> {
             OrderVO.OrderItemVO itemVO = new OrderVO.OrderItemVO();
             BeanUtils.copyProperties(item, itemVO);
-            
-            // 获取商品信息
-            Product product = productMapper.selectById(item.getProductId());
-            if (product != null) {
-                // TODO: 创建ProductVO
-            }
-            
             return itemVO;
         }).collect(Collectors.toList());
-        
         vo.setItems(itemVOs);
-        
-        // TODO: 获取买家和卖家信息
-        // vo.setBuyerInfo(userService.getUserInfo(order.getBuyerId()));
-        // vo.setSellerInfo(userService.getUserInfo(order.getSellerId()));
-        
+
+        // 买家/卖家简要信息
+        try {
+            var buyer = userMapper.selectById(order.getBuyerId());
+            if (buyer != null) {
+                UserVO bvo = new UserVO();
+                org.springframework.beans.BeanUtils.copyProperties(buyer, bvo);
+                vo.setBuyerInfo(bvo);
+            }
+        } catch (Exception ignored) {}
+        try {
+            var seller = userMapper.selectById(order.getSellerId());
+            if (seller != null) {
+                UserVO svo = new UserVO();
+                org.springframework.beans.BeanUtils.copyProperties(seller, svo);
+                vo.setSellerInfo(svo);
+            }
+        } catch (Exception ignored) {}
+
         return vo;
     }
 }

@@ -1,105 +1,50 @@
 package com.campus.backend.dto;
 
+import lombok.Data;
 import java.time.LocalDateTime;
 
+/**
+ * 用户信息VO (返回前端，不含敏感信息)
+ */
+@Data
 public class UserVO {
+
     private Long id;
     private String username;
+    private String nickname;
     private String phone;
-    private String wechat;
-    private String qq;
+    private String email;
     private String avatar;
+    private Integer gender;
     private String school;
     private String major;
+    private String grade;
+    private String wechat;
+    private String qq;
+    private String bio;
     private Boolean isStudent;
-    private String status;
+    private Integer status;
+    private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
 
-    public Long getId() {
-        return id;
+    /** 获取状态文本描述 */
+    public String getStatusText() {
+        if (status == null) return "未知";
+        return switch (status) {
+            case 0 -> "已禁用";
+            case 1 -> "正常";
+            case 2 -> "已封禁";
+            default -> "未知";
+        };
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    public String getWechat() {
-        return wechat;
-    }
-
-    public void setWechat(String wechat) {
-        this.wechat = wechat;
-    }
-
-    public String getQq() {
-        return qq;
-    }
-
-    public void setQq(String qq) {
-        this.qq = qq;
-    }
-
-    public String getAvatar() {
-        return avatar;
-    }
-
-    public void setAvatar(String avatar) {
-        this.avatar = avatar;
-    }
-
-    public String getSchool() {
-        return school;
-    }
-
-    public void setSchool(String school) {
-        this.school = school;
-    }
-
-    public String getMajor() {
-        return major;
-    }
-
-    public void setMajor(String major) {
-        this.major = major;
-    }
-
-    public Boolean getIsStudent() {
-        return isStudent;
-    }
-
-    public void setIsStudent(Boolean isStudent) {
-        this.isStudent = isStudent;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    /** 获取性别文本描述 */
+    public String getGenderText() {
+        if (gender == null) return "未设置";
+        return switch (gender) {
+            case 1 -> "男";
+            case 2 -> "女";
+            default -> "未设置";
+        };
     }
 }

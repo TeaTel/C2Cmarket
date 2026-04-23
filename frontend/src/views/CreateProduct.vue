@@ -1,1078 +1,627 @@
 <template>
-  <div class="create-product">
-    <NavBar />
-    
-    <main class="main-content">
-      <div class="container">
-        <!-- 页面标题 -->
-        <div class="page-header">
-          <h1 class="page-title">发布商品</h1>
-          <div class="page-subtitle">
-            填写商品信息，让闲置物品找到新主人
+  <div class="create-product-page">
+    <!-- 顶部导航 -->
+    <header class="page-header">
+      <button @click="$router.back()" class="back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="15,18 9,12 15,6"/>
+        </svg>
+      </button>
+      <h1 class="header-title">发布商品</h1>
+      <button
+        @click="handleSubmit"
+        :disabled="submitting || !isFormValid"
+        class="publish-btn"
+        :class="{ active: isFormValid }"
+      >
+        {{ submitting ? '发布中...' : '发布' }}
+      </button>
+    </header>
+
+    <!-- 表单内容 -->
+    <main class="form-content">
+      <!-- 图片上传区 -->
+      <section class="upload-section">
+        <div class="image-grid">
+          <div
+            v-for="(img, index) in imageList"
+            :key="index"
+            class="image-item"
+          >
+            <img :src="img" alt="" class="preview-image" />
+            <button @click="removeImage(index)" class="remove-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- 上传按钮 -->
+          <label
+            v-if="imageList.length < 9"
+            class="upload-trigger"
+          >
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              @change="handleImageUpload"
+              hidden
+            />
+            <div class="upload-icon-wrapper">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21,15 16,10 5,21"/>
+              </svg>
+            </div>
+            <span class="upload-text">{{ imageList.length }}/9</span>
+          </label>
+        </div>
+        <p class="upload-tip">第一张为封面图，最多上传9张</p>
+      </section>
+
+      <!-- 商品信息 -->
+      <section class="form-section">
+        <div class="form-group">
+          <label class="form-label required">商品标题</label>
+          <input
+            type="text"
+            v-model="formData.name"
+            placeholder="请输入商品标题（5-30字）"
+            maxlength="30"
+            class="form-input"
+          />
+          <span class="char-count">{{ formData.name.length }}/30</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required">商品描述</label>
+          <textarea
+            v-model="formData.description"
+            placeholder="描述一下商品的成色、购买时间、使用情况等..."
+            rows="4"
+            maxlength="500"
+            class="form-textarea"
+          ></textarea>
+          <span class="char-count">{{ formData.description.length }}/500</span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group half">
+            <label class="form-label required">价格（元）</label>
+            <div class="price-input-wrapper">
+              <span class="price-prefix">¥</span>
+              <input
+                type="number"
+                v-model.number="formData.price"
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                class="form-input price-input"
+              />
+            </div>
+          </div>
+
+          <div class="form-group half">
+            <label class="form-label">原价（元）</label>
+            <div class="price-input-wrapper">
+              <span class="price-prefix">¥</span>
+              <input
+                type="number"
+                v-model.number="formData.originalPrice"
+                placeholder="选填"
+                min="0"
+                step="0.01"
+                class="form-input price-input"
+              />
+            </div>
           </div>
         </div>
-        
-        <!-- 发布表单 -->
-        <div class="create-form-container">
-          <form @submit.prevent="handleSubmit" class="create-form">
-            <!-- 基本信息 -->
-            <div class="form-section">
-              <h3 class="section-title">
-                <span class="section-icon">📝</span>
-                基本信息
-              </h3>
-              
-              <div class="form-grid">
-                <!-- 商品名称 -->
-                <div class="form-group">
-                  <label for="name" class="form-label required">
-                    <span class="label-icon">🏷️</span>
-                    商品名称
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    v-model="formData.name"
-                    class="form-input"
-                    placeholder="请输入商品名称（如：二手iPhone 13）"
-                    required
-                    :disabled="submitting"
-                  />
-                  <div class="form-hint">简洁明了的名称更容易吸引买家</div>
-                </div>
-                
-                <!-- 商品价格 -->
-                <div class="form-group">
-                  <label for="price" class="form-label required">
-                    <span class="label-icon">💰</span>
-                    商品价格
-                  </label>
-                  <div class="input-with-unit">
-                    <input
-                      type="number"
-                      id="price"
-                      v-model="formData.price"
-                      class="form-input"
-                      placeholder="0.00"
-                      min="0"
-                      step="0.01"
-                      required
-                      :disabled="submitting"
-                    />
-                    <span class="input-unit">元</span>
-                  </div>
-                  <div class="form-hint">请输入合理的价格</div>
-                </div>
-              </div>
-              
-              <!-- 商品描述 -->
-              <div class="form-group">
-                <label for="description" class="form-label required">
-                  <span class="label-icon">📄</span>
-                  商品描述
-                </label>
-                <textarea
-                  id="description"
-                  v-model="formData.description"
-                  class="form-textarea"
-                  placeholder="请详细描述商品信息，包括：品牌、型号、使用情况、有无瑕疵、配件情况等"
-                  rows="5"
-                  required
-                  :disabled="submitting"
-                ></textarea>
-                <div class="form-hint">
-                  <span class="char-count">{{ formData.description.length }}/500</span>
-                  详细描述有助于买家了解商品
-                </div>
-              </div>
-            </div>
-            
-            <!-- 商品图片 -->
-            <div class="form-section">
-              <h3 class="section-title">
-                <span class="section-icon">🖼️</span>
-                商品图片
-              </h3>
-              
-              <div class="image-upload-section">
-                <div class="upload-hint">
-                  <p>上传清晰的商品图片能大大提高成交率</p>
-                  <p class="hint-small">支持 JPG、PNG 格式，单张图片不超过 5MB</p>
-                </div>
-                
-                <div class="image-upload-area" @click="triggerFileInput">
-                  <div class="upload-placeholder" v-if="!formData.imageUrl">
-                    <span class="upload-icon">📷</span>
-                    <p class="upload-text">点击上传商品图片</p>
-                    <p class="upload-subtext">或拖拽图片到这里</p>
-                  </div>
-                  <div class="image-preview" v-else>
-                    <img :src="formData.imageUrl" alt="商品预览" class="preview-image" />
-                    <button type="button" class="remove-image-btn" @click.stop="removeImage">
-                      <span>×</span>
-                    </button>
-                  </div>
-                  <input
-                    type="file"
-                    ref="fileInput"
-                    @change="handleImageUpload"
-                    accept="image/*"
-                    class="file-input"
-                    :disabled="submitting"
-                  />
-                </div>
-                
-                <div class="image-tips">
-                  <div class="tip-item">
-                    <span class="tip-icon">✅</span>
-                    <span>建议上传多角度图片</span>
-                  </div>
-                  <div class="tip-item">
-                    <span class="tip-icon">✅</span>
-                    <span>确保图片清晰明亮</span>
-                  </div>
-                  <div class="tip-item">
-                    <span class="tip-icon">✅</span>
-                    <span>展示商品细节和瑕疵</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- 商品分类 -->
-            <div class="form-section">
-              <h3 class="section-title">
-                <span class="section-icon">🏷️</span>
-                商品分类
-              </h3>
-              
-              <div class="form-grid">
-                <!-- 主分类 -->
-                <div class="form-group">
-                  <label for="categoryId" class="form-label required">
-                    <span class="label-icon">📂</span>
-                    商品分类
-                  </label>
-                  <select
-                    id="categoryId"
-                    v-model="formData.categoryId"
-                    class="form-select"
-                    required
-                    :disabled="submitting || loadingCategories"
-                  >
-                    <option value="" disabled>请选择商品分类</option>
-                    <option
-                      v-for="category in categories"
-                      :key="category.id"
-                      :value="category.id"
-                    >
-                      {{ category.name }}
-                    </option>
-                  </select>
-                  <div class="form-hint">选择合适的分类让商品更容易被找到</div>
-                </div>
-                
-                <!-- 商品状态 -->
-                <div class="form-group">
-                  <label class="form-label required">
-                    <span class="label-icon">📊</span>
-                    商品状态
-                  </label>
-                  <div class="status-options">
-                    <label class="radio-label">
-                      <input
-                        type="radio"
-                        v-model="formData.status"
-                        value="1"
-                        class="radio-input"
-                        :disabled="submitting"
-                      />
-                      <span class="radio-custom"></span>
-                      <span class="radio-text">在售</span>
-                    </label>
-                    <label class="radio-label">
-                      <input
-                        type="radio"
-                        v-model="formData.status"
-                        value="0"
-                        class="radio-input"
-                        :disabled="submitting"
-                      />
-                      <span class="radio-custom"></span>
-                      <span class="radio-text">待审核</span>
-                    </label>
-                  </div>
-                  <div class="form-hint">新发布的商品需要管理员审核</div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- 联系方式 -->
-            <div class="form-section">
-              <h3 class="section-title">
-                <span class="section-icon">📞</span>
-                联系方式
-              </h3>
-              
-              <div class="form-grid">
-                <!-- 联系电话 -->
-                <div class="form-group">
-                  <label for="contactPhone" class="form-label">
-                    <span class="label-icon">📱</span>
-                    联系电话
-                  </label>
-                  <input
-                    type="tel"
-                    id="contactPhone"
-                    v-model="formData.contactPhone"
-                    class="form-input"
-                    placeholder="请输入联系电话（选填）"
-                    :disabled="submitting"
-                  />
-                  <div class="form-hint">买家可以通过电话联系您</div>
-                </div>
-                
-                <!-- 微信 -->
-                <div class="form-group">
-                  <label for="contactWechat" class="form-label">
-                    <span class="label-icon">💬</span>
-                    微信
-                  </label>
-                  <input
-                    type="text"
-                    id="contactWechat"
-                    v-model="formData.contactWechat"
-                    class="form-input"
-                    placeholder="请输入微信号（选填）"
-                    :disabled="submitting"
-                  />
-                  <div class="form-hint">买家可以通过微信联系您</div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- 错误提示 -->
-            <div v-if="errorMessage" class="alert alert-error">
-              <span class="alert-icon">⚠️</span>
-              <span class="alert-text">{{ errorMessage }}</span>
-            </div>
-            
-            <!-- 表单操作 -->
-            <div class="form-actions">
-              <router-link to="/products" class="btn btn-outline btn-lg">
-                取消
-              </router-link>
-              <button
-                type="submit"
-                class="btn btn-primary btn-lg"
-                :disabled="submitting || !isFormValid"
-              >
-                <span v-if="submitting" class="loading-spinner"></span>
-                <span>{{ submitting ? '发布中...' : '发布商品' }}</span>
-              </button>
-            </div>
-          </form>
-          
-          <!-- 发布提示 -->
-          <div class="publish-tips">
-            <h4 class="tips-title">
-              <span class="tips-icon">💡</span>
-              发布小贴士
-            </h4>
-            <ul class="tips-list">
-              <li class="tip-item">
-                <span class="tip-bullet">📸</span>
-                <span>上传真实、清晰的商品图片</span>
-              </li>
-              <li class="tip-item">
-                <span class="tip-bullet">💰</span>
-                <span>设置合理的价格，参考市场价</span>
-              </li>
-              <li class="tip-item">
-                <span class="tip-bullet">📝</span>
-                <span>详细描述商品状况，包括瑕疵</span>
-              </li>
-              <li class="tip-item">
-                <span class="tip-bullet">🔒</span>
-                <span>交易时注意安全，建议校内面交</span>
-              </li>
-              <li class="tip-item">
-                <span class="tip-bullet">📞</span>
-                <span>保持联系方式畅通，及时回复</span>
-              </li>
-            </ul>
+
+        <div class="form-group">
+          <label class="form-label required">分类</label>
+          <select v-model="formData.categoryId" class="form-select">
+            <option value="">请选择分类</option>
+            <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+              {{ cat.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required">成色</label>
+          <div class="condition-options">
+            <button
+              v-for="cond in conditions"
+              :key="cond.value"
+              @click="formData.condition = cond.value"
+              :class="['condition-option', { active: formData.condition === cond.value }]"
+            >
+              {{ cond.label }}
+            </button>
           </div>
         </div>
-      </div>
+
+        <div class="form-group">
+          <label class="form-label">交易地点</label>
+          <input
+            type="text"
+            v-model="formData.location"
+            placeholder="如：图书馆门口、宿舍楼大厅等"
+            class="form-input"
+          />
+        </div>
+      </section>
+
+      <!-- 发布须知 -->
+      <section class="notice-section">
+        <h3 class="notice-title">发布须知</h3>
+        <ul class="notice-list">
+          <li>请确保商品信息真实有效，禁止发布违禁品</li>
+          <li>图片需清晰展示商品实际状况</li>
+          <li>建议使用平台聊天功能沟通，保障交易安全</li>
+          <li>平台有权下架违规或虚假商品</li>
+        </ul>
+      </section>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
-import NavBar from '../components/NavBar.vue'
-import { productApi, categoryApi } from '../services/api'
+import { productApi } from '../services/api'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const fileInput = ref(null)
 
 // 表单数据
 const formData = ref({
   name: '',
-  price: '',
   description: '',
-  imageUrl: '',
+  price: null,
+  originalPrice: null,
   categoryId: '',
-  status: '1', // 默认在售
-  contactPhone: '',
-  contactWechat: ''
+  condition: '几乎全新',
+  location: ''
 })
 
-// 状态管理
-const categories = ref([])
-const loadingCategories = ref(true)
+const imageList = ref([])
 const submitting = ref(false)
-const errorMessage = ref('')
+
+// 分类选项
+const categories = [
+  { id: 1, name: '数码电子' },
+  { id: 2, name: '书籍教材' },
+  { id: 3, name: '生活日用' },
+  { id: 4, name: '服饰鞋包' },
+  { id: 5, name: '美妆护肤' },
+  { id: 6, name: '运动户外' }
+]
+
+const conditions = [
+  { value: '全新', label: '全新' },
+  { value: '几乎全新', label: '几乎全新' },
+  { value: '轻微使用痕迹', label: '轻微使用痕迹' },
+  { value: '明显使用痕迹', label: '明显使用痕迹' }
+]
 
 // 表单验证
 const isFormValid = computed(() => {
   return (
-    formData.value.name.trim() &&
-    formData.value.price &&
-    parseFloat(formData.value.price) > 0 &&
-    formData.value.description.trim() &&
-    formData.value.categoryId &&
-    formData.value.status
+    formData.value.name.trim().length >= 5 &&
+    formData.value.description.trim().length > 0 &&
+    formData.value.price > 0 &&
+    formData.value.categoryId !== '' &&
+    formData.value.condition !== '' &&
+    imageList.value.length > 0
   )
 })
 
-// 预设分类数据
-const defaultCategories = [
-  { id: 1, name: '电子产品', description: '手机、电脑、平板等电子设备' },
-  { id: 2, name: '书籍教材', description: '教科书、参考书、小说等' },
-  { id: 3, name: '生活用品', description: '日常生活中的各种用品' },
-  { id: 4, name: '服装鞋帽', description: '衣服、鞋子、帽子等' },
-  { id: 5, name: '运动器材', description: '体育用品和健身器材' },
-  { id: 6, name: '其他', description: '其他未分类的物品' }
-]
-
-// 加载分类数据
-async function loadCategories() {
-  try {
-    loadingCategories.value = true
-    const response = await categoryApi.getCategories()
-    if (response.code === 200) {
-      categories.value = response.data || []
-      // 如果API返回空数组，使用预设分类
-      if (categories.value.length === 0) {
-        categories.value = defaultCategories
-      }
-    } else {
-      // API返回错误，使用预设分类
-      console.warn('分类API返回错误，使用预设分类:', response.message)
-      categories.value = defaultCategories
-    }
-  } catch (error) {
-    console.error('加载分类失败，使用预设分类:', error)
-    // 网络错误或其他异常，使用预设分类
-    categories.value = defaultCategories
-    errorMessage.value = '分类数据加载异常，已使用预设分类'
-  } finally {
-    loadingCategories.value = false
-  }
-}
-
-// 触发文件选择
-function triggerFileInput() {
-  if (!submitting.value) {
-    fileInput.value.click()
-  }
-}
-
-// 处理图片上传
+// 图片上传处理
 function handleImageUpload(event) {
-  const file = event.target.files[0]
-  if (!file) return
-
-  // 验证文件类型
-  if (!file.type.startsWith('image/')) {
-    errorMessage.value = '请选择图片文件'
-    return
-  }
-
-  // 验证文件大小（5MB）
-  if (file.size > 5 * 1024 * 1024) {
-    errorMessage.value = '图片大小不能超过5MB'
-    return
-  }
-
-  // 创建本地预览URL
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    formData.value.imageUrl = e.target.result
-  }
-  reader.readAsDataURL(file)
+  const files = Array.from(event.target.files)
   
-  // 重置文件输入，允许选择同一文件
-  event.target.value = ''
-}
-
-// 移除图片
-function removeImage() {
-  formData.value.imageUrl = ''
-}
-
-// 处理表单提交
-async function handleSubmit() {
-  if (!isFormValid.value) {
-    errorMessage.value = '请填写所有必填项'
-    return
-  }
-
-  // 验证价格
-  const price = parseFloat(formData.value.price)
-  if (isNaN(price) || price <= 0) {
-    errorMessage.value = '请输入有效的价格'
-    return
-  }
-
-  // 验证描述长度
-  if (formData.value.description.length > 500) {
-    errorMessage.value = '商品描述不能超过500字'
-    return
-  }
-
-  submitting.value = true
-  errorMessage.value = ''
-
-  try {
-    // 检查用户是否登录
-    const token = localStorage.getItem('token')
-    const isAuthenticated = !!token
+  files.forEach(file => {
+    if (imageList.value.length >= 9) return
     
-    // 准备提交数据
-    const productData = {
-      name: formData.value.name.trim(),
-      price: price,
-      description: formData.value.description.trim(),
-      imageUrl: formData.value.imageUrl,
-      categoryId: formData.value.categoryId,
-      status: parseInt(formData.value.status),
-      contactPhone: formData.value.contactPhone.trim(),
-      contactWechat: formData.value.contactWechat.trim()
-    }
-
-    // 如果用户未登录，使用模拟发布
-    if (!isAuthenticated) {
-      console.warn('用户未登录，使用模拟发布')
-      errorMessage.value = '演示模式：商品发布成功（模拟）'
-      
-      // 模拟API响应延迟
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // 模拟成功响应
-      const mockResponse = {
-        code: 200,
-        message: '商品发布成功',
-        data: {
-          id: Math.floor(Math.random() * 1000) + 1000,
-          ...productData,
-          createdAt: new Date().toISOString()
-        }
-      }
-      
-      // 显示成功消息
-      errorMessage.value = '演示模式：商品发布成功！3秒后跳转到商品列表'
-      
-      // 3秒后跳转到商品列表
-      setTimeout(() => {
-        router.push('/products')
-      }, 3000)
-      
+    // 验证文件类型
+    if (!file.type.startsWith('image/')) {
+      alert('请选择图片文件')
       return
     }
 
-    // 调用API发布商品
+    // 验证文件大小（最大5MB）
+    if (file.size > 5 * 1024 * 1024) {
+      alert('图片大小不能超过5MB')
+      return
+    }
+
+    // 创建预览URL
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      imageList.value.push(e.target.result)
+    }
+    reader.readAsDataURL(file)
+  })
+
+  event.target.value = ''
+}
+
+function removeImage(index) {
+  imageList.value.splice(index, 1)
+}
+
+// 提交表单
+async function handleSubmit() {
+  if (!isFormValid.value || submitting.value) return
+
+  try {
+    submitting.value = true
+
+    const productData = {
+      ...formData.value,
+      images: imageList.value,
+      status: 1 // 在售状态
+    }
+
     const response = await productApi.createProduct(productData)
-    
+
     if (response.code === 200) {
-      // 发布成功，跳转到商品详情页
-      const productId = response.data?.id
-      if (productId) {
-        router.push(`/products/${productId}`)
-      } else {
-        router.push('/products')
-      }
+      alert('发布成功！')
+      router.push('/profile?tab=my-products')
     } else {
-      errorMessage.value = response.message || '发布失败，请稍后重试'
+      alert(response.message || '发布失败，请稍后重试')
     }
   } catch (error) {
-    console.error('发布商品失败:', error)
-    
-    // 更详细的错误处理
-    if (error.response) {
-      const { status, data } = error.response
-      if (status === 401) {
-        errorMessage.value = '用户未登录或登录已过期，请重新登录'
-        // 清除本地token并跳转到登录页
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        setTimeout(() => {
-          router.push('/login')
-        }, 2000)
-      } else if (status === 403) {
-        errorMessage.value = '没有权限发布商品，请检查用户权限'
-      } else if (status === 500) {
-        errorMessage.value = '服务器内部错误，请稍后重试'
-      } else if (data && data.message) {
-        errorMessage.value = data.message
-      } else {
-        errorMessage.value = `发布失败，错误码: ${status}`
-      }
-    } else if (error.request) {
-      // 请求已发送但没有收到响应
-      errorMessage.value = '网络连接失败，请检查网络设置'
-    } else {
-      // 请求配置错误
-      errorMessage.value = '发布过程中发生错误，请检查表单数据'
-    }
+    console.error('发布失败:', error)
+    alert('网络错误，请检查网络连接后重试')
   } finally {
     submitting.value = false
   }
 }
-
-// 初始化
-onMounted(() => {
-  // 检查用户是否登录
-  if (!authStore.isAuthenticated) {
-    router.push('/login')
-    return
-  }
-  
-  loadCategories()
-})
 </script>
 
 <style scoped>
-.create-product {
+.create-product-page {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  background-color: #f5f5f5;
 }
 
-.main-content {
-  flex: 1;
-  padding: var(--space-6) 0;
-  background-color: var(--color-bg-secondary);
-}
-
-.container {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 0 var(--space-4);
-}
-
-/* 页面标题 */
+/* ============================================
+   页面头部
+   ============================================ */
 .page-header {
-  margin-bottom: var(--space-8);
-  text-align: center;
-}
-
-.page-title {
-  font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-2);
-}
-
-.page-subtitle {
-  font-size: var(--font-size-lg);
-  color: var(--color-text-secondary);
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-/* 表单容器 */
-.create-form-container {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: var(--space-8);
-  margin-bottom: var(--space-8);
-}
-
-@media (max-width: 768px) {
-  .create-form-container {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* 表单样式 */
-.create-form {
-  background-color: var(--color-bg-primary);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--color-border-light);
-  padding: var(--space-8);
-  box-shadow: var(--shadow-md);
-}
-
-/* 表单部分 */
-.form-section {
-  margin-bottom: var(--space-8);
-  padding-bottom: var(--space-6);
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.form-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
-.section-title {
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-4);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.section-icon {
-  font-size: 1.25rem;
-}
-
-/* 表单网格 */
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
-}
-
-@media (max-width: 640px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* 表单组 */
-.form-group {
-  margin-bottom: var(--space-4);
-}
-
-.form-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--space-2);
-}
-
-.form-label.required::after {
-  content: '*';
-  color: var(--color-error);
-  margin-left: 2px;
-}
-
-.label-icon {
-  font-size: 1rem;
-}
-
-.form-input,
-.form-textarea,
-.form-select {
-  width: 100%;
-  padding: var(--space-3);
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-lg);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  background-color: var(--color-bg-primary);
-  transition: var(--transition-fast);
-}
-
-.form-input:focus,
-.form-textarea:focus,
-.form-select:focus {
-  outline: none;
-  border-color: var(--color-primary-500);
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
-}
-
-.form-input::placeholder,
-.form-textarea::placeholder {
-  color: var(--color-text-tertiary);
-}
-
-.form-input:disabled,
-.form-textarea:disabled,
-.form-select:disabled {
-  background-color: var(--color-gray-50);
-  cursor: not-allowed;
-}
-
-/* 带单位的输入框 */
-.input-with-unit {
-  position: relative;
-}
-
-.input-unit {
-  position: absolute;
-  right: var(--space-3);
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-sm);
-}
-
-/* 文本域 */
-.form-textarea {
-  min-height: 120px;
-  resize: vertical;
-}
-
-/* 表单提示 */
-.form-hint {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-  margin-top: var(--space-1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 12px 16px;
+  background-color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.char-count {
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
-}
-
-/* 图片上传区域 */
-.image-upload-section {
-  margin-top: var(--space-4);
-}
-
-.upload-hint {
-  margin-bottom: var(--space-4);
-}
-
-.upload-hint p {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.hint-small {
-  font-size: var(--font-size-xs) !important;
-  color: var(--color-text-tertiary) !important;
-  margin-top: var(--space-1) !important;
-}
-
-.image-upload-area {
-  border: 2px dashed var(--color-border-medium);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-bg-secondary);
-  height: 200px;
+.back-btn {
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: var(--transition-fast);
+  color: #333;
+  border-radius: 50%;
+}
+
+.back-btn svg { width: 22px; height: 22px; }
+
+.header-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.publish-btn {
+  padding: 8px 20px;
+  background-color: #e0e0e0;
+  color: #999;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.publish-btn.active {
+  background: linear-gradient(135deg, #FF6A00 0%, #FF8533 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(255, 106, 0, 0.35);
+}
+
+.publish-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   表单内容
+   ============================================ */
+.form-content {
+  padding-bottom: 40px;
+}
+
+/* 图片上传 */
+.upload-section {
+  background-color: #fff;
+  padding: 20px 16px;
+  margin-top: 10px;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.image-item {
   position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
   overflow: hidden;
-}
-
-.image-upload-area:hover {
-  border-color: var(--color-primary-500);
-  background-color: var(--color-primary-50);
-}
-
-.upload-placeholder {
-  text-align: center;
-  color: var(--color-text-tertiary);
-}
-
-.upload-icon {
-  font-size: 3rem;
-  display: block;
-  margin-bottom: var(--space-2);
-}
-
-.upload-text {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-medium);
-  margin-bottom: var(--space-1);
-}
-
-.upload-subtext {
-  font-size: var(--font-size-sm);
-}
-
-.image-preview {
-  position: relative;
-  width: 100%;
-  height: 100%;
+  background-color: #f5f5f5;
 }
 
 .preview-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: var(--radius-md);
 }
 
-.remove-image-btn {
+.remove-btn {
   position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
-  width: 32px;
-  height: 32px;
-  background-color: rgba(0, 0, 0, 0.7);
-  color: white;
-  border: none;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: var(--transition-fast);
-  font-size: 1.25rem;
-}
-
-.remove-image-btn:hover {
-  background-color: rgba(0, 0, 0, 0.9);
-  transform: scale(1.1);
-}
-
-.file-input {
-  display: none;
-}
-
-/* 图片提示 */
-.image-tips {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-}
-
-@media (max-width: 640px) {
-  .image-tips {
-    grid-template-columns: 1fr;
-  }
-}
-
-.tip-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-.tip-icon {
-  font-size: 1rem;
-}
-
-/* 状态选项 */
-.status-options {
-  display: flex;
-  gap: var(--space-4);
-}
-
-.radio-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  user-select: none;
-}
-
-.radio-input {
-  display: none;
-}
-
-.radio-custom {
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--color-border-medium);
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  background-color: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: var(--transition-fast);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
-.radio-input:checked + .radio-custom {
-  border-color: var(--color-primary-500);
-  background-color: var(--color-primary-500);
+.remove-btn svg { width: 12px; height: 12px; }
+.remove-btn:active { background-color: rgba(255, 77, 79, 0.9); }
+
+.upload-trigger {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #fafafa;
+  border: 2px dashed #e0e0e0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s ease;
 }
 
-.radio-input:checked + .radio-custom::after {
-  content: '';
-  width: 8px;
-  height: 8px;
-  background-color: white;
-  border-radius: 50%;
+.upload-trigger:active {
+  background-color: #FFF7E6;
+  border-color: #FFD591;
 }
 
-.radio-text {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-}
-
-/* 警告框 */
-.alert {
+.upload-icon-wrapper {
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--space-4);
+  justify-content: center;
 }
 
-.alert-error {
-  background-color: #fee2e2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
+.upload-icon-wrapper svg { width: 32px; height: 32px; }
+
+.upload-text {
+  font-size: 13px;
+  color: #bbb;
 }
 
-.alert-icon {
-  font-size: 1rem;
+.upload-tip {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #999;
+  text-align: center;
 }
 
-.alert-text {
+/* 表单区域 */
+.form-section {
+  margin-top: 10px;
+  background-color: #fff;
+  padding: 8px 16px 20px;
+}
+
+.form-group {
+  margin-top: 20px;
+  position: relative;
+}
+
+.form-group.half {
   flex: 1;
 }
 
-/* 表单操作 */
-.form-actions {
+.form-row {
   display: flex;
-  justify-content: flex-end;
-  gap: var(--space-4);
-  margin-top: var(--space-8);
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--color-border-light);
+  gap: 16px;
 }
 
-.btn-lg {
-  padding: var(--space-3) var(--space-6);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  min-width: 120px;
+.form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 10px;
 }
 
-.loading-spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-right: var(--space-2);
+.form-label.required::after {
+  content: '*';
+  color: #FF4D4F;
+  margin-left: 3px;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #333;
+  outline: none;
+  transition: all 0.25s ease;
+  background-color: #fafafa;
 }
 
-/* 发布提示 */
-.publish-tips {
-  background-color: var(--color-bg-primary);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--color-border-light);
-  padding: var(--space-6);
-  box-shadow: var(--shadow-md);
-  align-self: start;
-  position: sticky;
-  top: var(--space-6);
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: #FF6A00;
+  background-color: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.08);
 }
 
-@media (max-width: 768px) {
-  .publish-tips {
-    position: static;
-  }
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: #ccc;
 }
 
-.tips-title {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-4);
+.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+  line-height: 1.6;
+}
+
+.form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+
+.char-count {
+  position: absolute;
+  right: 0;
+  bottom: -22px;
+  font-size: 12px;
+  color: #ccc;
+}
+
+/* 价格输入框 */
+.price-input-wrapper {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 4px;
+  background-color: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.25s ease;
 }
 
-.tips-icon {
-  font-size: 1.25rem;
+.price-input-wrapper:focus-within {
+  border-color: #FF6A00;
+  background-color: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.08);
 }
 
-.tips-list {
+.price-prefix {
+  padding-left: 14px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #FF4D4F;
+}
+
+.price-input {
+  border: none !important;
+  background: none !important;
+  padding: 12px 14px !important;
+  box-shadow: none !important;
+  font-weight: 600;
+}
+
+/* 成色选项 */
+.condition-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.condition-option {
+  padding: 9px 18px;
+  background-color: #f5f5f5;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.condition-option.active {
+  background-color: #FFF7E6;
+  border-color: #FFD591;
+  color: #FA8C16;
+  font-weight: 600;
+}
+
+.condition-option:active {
+  transform: scale(0.95);
+}
+
+/* 发布须知 */
+.notice-section {
+  margin-top: 10px;
+  background-color: #fff;
+  padding: 20px 16px;
+}
+
+.notice-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+  margin: 0 0 14px 0;
+}
+
+.notice-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.tip-item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+.notice-list li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 13px;
+  color: #888;
+  line-height: 2;
 }
 
-.tip-item:last-child {
-  margin-bottom: 0;
-}
-
-.tip-bullet {
-  font-size: 1rem;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-/* 响应式调整 */
-@media (max-width: 640px) {
-  .main-content {
-    padding: var(--space-4) 0;
-  }
-  
-  .page-title {
-    font-size: var(--font-size-2xl);
-  }
-  
-  .page-subtitle {
-    font-size: var(--font-size-base);
-  }
-  
-  .create-form {
-    padding: var(--space-6);
-  }
-  
-  .form-section {
-    padding-bottom: var(--space-4);
-    margin-bottom: var(--space-6);
-  }
-  
-  .section-title {
-    font-size: var(--font-size-lg);
-  }
-  
-  .form-actions {
-    flex-direction: column;
-  }
-  
-  .btn-lg {
-    width: 100%;
-  }
+.notice-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #FF6A00;
 }
 </style>

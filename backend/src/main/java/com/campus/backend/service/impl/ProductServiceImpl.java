@@ -1,36 +1,40 @@
 package com.campus.backend.service.impl;
 
-import com.campus.backend.dto.CategoryVO;
-import com.campus.backend.dto.ProductCreateDTO;
-import com.campus.backend.dto.ProductQueryDTO;
-import com.campus.backend.dto.ProductUpdateDTO;
-import com.campus.backend.dto.ProductVO;
-import com.campus.backend.dto.UserVO;
+import com.campus.backend.dto.*;
 import com.campus.backend.entity.Product;
+import com.campus.backend.common.ErrorCode;
+import com.campus.backend.exception.BusinessException;
+import com.campus.backend.exception.NotFoundException;
+import com.campus.backend.mapper.CategoryMapper;
 import com.campus.backend.mapper.ProductMapper;
+import com.campus.backend.mapper.UserMapper;
 import com.campus.backend.service.CategoryService;
 import com.campus.backend.service.ProductService;
-import com.campus.backend.service.UserService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 商品服务实现 - 闲鱼风格
+ */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
 
-    @Autowired
-    private ProductMapper productMapper;
-
-    @Autowired
-    private CategoryService categoryService;
-
-    @Autowired
-    private UserService userService;
+    private final ProductMapper productMapper;
+    private final CategoryMapper categoryMapper;
+    private final UserMapper userMapper;
+    private final CategoryService categoryService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public List<ProductVO> getProductList(ProductQueryDTO query) {
@@ -44,44 +48,63 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional
     public ProductVO getProductDetail(Long productId) {
         Product product = productMapper.selectById(productId);
         if (product == null) {
-            throw new RuntimeException("商品不存在");
+            throw new NotFoundException("商品", productId);
         }
+        // 增加浏览量
+        productMapper.incrementViewCount(productId);
         return convertToVO(product);
     }
 
     @Override
     @Transactional
-    public ProductVO createProduct(ProductCreateDTO createDTO, Long sellerId) {
+    public ProductVO createProduct(ProductCreateDTO dto, Long sellerId) {
         Product product = new Product();
-        BeanUtils.copyProperties(createDTO, product);
+        BeanUtils.copyProperties(dto, product);
         product.setSellerId(sellerId);
-        product.setStatus(1);  // active状态
-        product.setCreatedAt(LocalDateTime.now());
-        product.setUpdatedAt(LocalDateTime.now());
-        
+        product.setStatus(1); // 在售
+
+        // 处理图片列表 -> JSON字符串
+        if (dto.getImageUrls() != null && !dto.getImageUrls().isEmpty()) {
+            try {
+                product.setImageUrls(objectMapper.writeValueAsString(dto.getImageUrls()));
+            } catch (JsonProcessingException e) {
+                log.warn("图片URL序列化失败", e);
+            }
+        }
+        // 封面图默认取第一张
+        if (dto.getImageUrls() != null && !dto.getImageUrls().isEmpty() && product.getCoverImage() == null) {
+            product.setCoverImage(dto.getImageUrls().get(0));
+        }
+
         productMapper.insert(product);
+        log.info("商品发布成功: id={}, name={}, sellerId={}", product.getId(), product.getName(), sellerId);
         return convertToVO(product);
     }
 
     @Override
     @Transactional
-    public ProductVO updateProduct(Long productId, ProductUpdateDTO updateDTO, Long sellerId) {
+    public ProductVO updateProduct(Long productId, ProductUpdateDTO dto, Long sellerId) {
         Product product = productMapper.selectById(productId);
         if (product == null) {
-            throw new RuntimeException("商品不存在");
+            throw new NotFoundException("商品", productId);
         }
-        
-        // 检查权限：只有卖家本人可以修改商品
-        if (!product.getSellerId().equals(sellerId)) {
-            throw new RuntimeException("无权修改此商品");
+        checkOwnership(product, sellerId);
+
+        BeanUtils.copyProperties(dto, product);
+
+        // 处理图片列表
+        if (dto.getImageUrls() != null) {
+            try {
+                product.setImageUrls(objectMapper.writeValueAsString(dto.getImageUrls()));
+            } catch (JsonProcessingException e) {
+                log.warn("图片URL序列化失败", e);
+            }
         }
-        
-        BeanUtils.copyProperties(updateDTO, product);
-        product.setUpdatedAt(LocalDateTime.now());
-        
+
         productMapper.update(product);
         return convertToVO(product);
     }
@@ -91,16 +114,21 @@ public class ProductServiceImpl implements ProductService {
     public void deleteProduct(Long productId, Long sellerId) {
         Product product = productMapper.selectById(productId);
         if (product == null) {
-            throw new RuntimeException("商品不存在");
+            throw new NotFoundException("商品", productId);
         }
-        
-        // 检查权限：只有卖家本人可以删除商品
-        if (!product.getSellerId().equals(sellerId)) {
-            throw new RuntimeException("无权删除此商品");
+        checkOwnership(product, sellerId);
+        productMapper.updateStatus(productId, 0); // 下架
+    }
+
+    @Override
+    @Transactional
+    public void toggleProductStatus(Long productId, Long sellerId, Integer status) {
+        Product product = productMapper.selectById(productId);
+        if (product == null) {
+            throw new NotFoundException("商品", productId);
         }
-        
-        // 软删除：将状态改为0 (removed)
-        productMapper.updateStatus(productId, 0);
+        checkOwnership(product, sellerId);
+        productMapper.updateStatus(productId, status);
     }
 
     @Override
@@ -108,42 +136,38 @@ public class ProductServiceImpl implements ProductService {
         List<Product> products = productMapper.selectBySellerId(sellerId);
         return products.stream().map(this::convertToVO).collect(Collectors.toList());
     }
-    
+
+    /** 校验所有权 */
+    private void checkOwnership(Product product, Long sellerId) {
+        if (!product.getSellerId().equals(sellerId)) {
+            throw new BusinessException(ErrorCode.PRODUCT_OWNERSHIP_ERROR, "无权操作此商品");
+        }
+    }
+
+    /** Entity -> VO */
     private ProductVO convertToVO(Product product) {
         ProductVO vo = new ProductVO();
-        // 手动复制字段
-        vo.setId(product.getId());
-        vo.setName(product.getName());
-        vo.setDescription(product.getDescription());
-        vo.setPrice(product.getPrice());
-        vo.setCategoryId(product.getCategoryId());
-        vo.setSellerId(product.getSellerId());
-        vo.setStatus(product.getStatus());
-        vo.setImageUrl(product.getImageUrl());
+        BeanUtils.copyProperties(product, vo);
 
-        // 查询分类名称
+        // 分类名称
         try {
             if (product.getCategoryId() != null) {
-                var categoryResult = categoryService.getCategoryById(product.getCategoryId());
-                if (categoryResult != null && categoryResult.getData() != null) {
-                    vo.setCategoryName(categoryResult.getData().getName());
-                }
+                var cat = categoryMapper.findById(product.getCategoryId());
+                if (cat != null) vo.setCategoryName(cat.getName());
             }
-        } catch (Exception e) {
-            System.err.println("获取分类名称失败: " + e.getMessage());
-        }
+        } catch (Exception ignored) {}
 
-        // 查询卖家名称
+        // 卖家信息
         try {
             if (product.getSellerId() != null) {
-                UserVO user = userService.getUserInfo(product.getSellerId());
-                if (user != null) {
-                    vo.setSellerName(user.getUsername());
+                var seller = userMapper.selectById(product.getSellerId());
+                if (seller != null) {
+                    vo.setSellerName(seller.getNickname() != null ? seller.getNickname() : seller.getUsername());
+                    vo.setSellerAvatar(seller.getAvatar());
+                    vo.setSellerSchool(seller.getSchool());
                 }
             }
-        } catch (Exception e) {
-            System.err.println("获取卖家名称失败: " + e.getMessage());
-        }
+        } catch (Exception ignored) {}
 
         return vo;
     }

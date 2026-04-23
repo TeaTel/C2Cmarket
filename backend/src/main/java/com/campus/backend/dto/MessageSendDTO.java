@@ -1,49 +1,24 @@
 package com.campus.backend.dto;
 
+import lombok.Data;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+/**
+ * 发送消息请求DTO
+ */
+@Data
 public class MessageSendDTO {
-    
+
     @NotNull(message = "接收者ID不能为空")
     private Long receiverId;
-    
+
     @NotBlank(message = "消息内容不能为空")
     private String content;
-    
+
+    /** 关联的商品ID (可选，用于商品咨询场景) */
     private Long productId;
-    
-    private String messageType;
 
-    public Long getReceiverId() {
-        return receiverId;
-    }
-
-    public void setReceiverId(Long receiverId) {
-        this.receiverId = receiverId;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
-
-    public Long getProductId() {
-        return productId;
-    }
-
-    public void setProductId(Long productId) {
-        this.productId = productId;
-    }
-
-    public String getMessageType() {
-        return messageType;
-    }
-
-    public void setMessageType(String messageType) {
-        this.messageType = messageType;
-    }
+    /** 消息类型: text文本, image图片, system系统消息 (默认text) */
+    private String messageType = "text";
 }
