@@ -80,4 +80,10 @@ public class ProductController {
     public Result<List<ProductVO>> getMyProducts() {
         return Result.success(productService.getMyProducts(SecurityUtils.getCurrentUserId()));
     }
+
+    @GetMapping("/deploy-version")
+    @Operation(summary = "部署版本检测")
+    public Result<String> getDeployVersion() {
+        return Result.success("deployed", "v2.0-refactor-4347327");
+    }
 }
