@@ -67,27 +67,27 @@ api.interceptors.response.use(
 // ============================================
 export const userApi = {
   register(data) {
-    return api.post('/users/register', data)
+    return api.post('/v2/users/register', data)
   },
 
   login(data) {
-    return api.post('/users/login', data)
+    return api.post('/v2/users/login', data)
   },
 
   getUserInfo() {
-    return api.get('/users/info')
+    return api.get('/v2/users/info')
   },
 
   updateProfile(data) {
-    return api.put('/users/profile', data)
+    return api.put('/v2/users/profile', data)
   },
 
   changePassword(data) {
-    return api.put('/users/password', data)
+    return api.put('/v2/users/password', data)
   },
 
   uploadAvatar(formData) {
-    return api.post('/users/avatar', formData, {
+    return api.post('/v2/users/avatar', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
   }
@@ -235,32 +235,31 @@ export const messageApi = {
 // ============================================
 export const categoryApi = {
   getCategories(params) {
-    return api.get('/categories', { params })
+    return api.get('/v2/categories', { params })
   },
 
   getCategoryTree() {
-    return api.get('/categories/tree')
+    return api.get('/v2/categories/tree')
   },
 
   getCategoryDetail(id) {
-    return api.get(`/categories/${id}`)
+    return api.get(`/v2/categories/${id}`)
   },
 
   createCategory(data) {
-    return api.post('/categories', data)
+    return api.post('/v2/categories', data)
   },
 
   updateCategory(id, data) {
-    return api.put(`/categories/${id}`, data)
+    return api.put(`/v2/categories/${id}`, data)
   },
 
   deleteCategory(id) {
-    return api.delete(`/categories/${id}`)
+    return api.delete(`/v2/categories/${id}`)
   },
 
-  // 获取分类下的商品
   getCategoryProducts(categoryId, params) {
-    return api.get(`/categories/${categoryId}/products`, { params })
+    return api.get(`/v2/categories/${categoryId}/products`, { params })
   }
 }
 

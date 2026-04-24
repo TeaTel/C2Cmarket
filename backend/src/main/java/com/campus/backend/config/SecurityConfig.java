@@ -45,12 +45,15 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // ===== 公开接口 (无需登录) =====
                 .requestMatchers(
-                    "/api/users/register",
-                    "/api/users/login",
-                    // 分类浏览 - 公开
+                    "/api/users/register", "/api/users/login",
                     "/api/categories/**",
-                    // 商品浏览 - 公开
                     "/api/products/**",
+                    "/api/favorites/**",
+                    // v2 API (绕过旧路径拦截问题)
+                    "/api/v2/users/register", "/api/v2/users/login",
+                    "/api/v2/categories/**",
+                    "/api/v2/products/**",
+                    "/api/v2/favorites/**",
                     // Swagger文档
                     "/doc.html", "/webjars/**", "/swagger-resources/**",
                     "/v3/api-docs/**", "/v2/api-docs/**",
@@ -62,7 +65,6 @@ public class SecurityConfig {
                     "/", "/index.html", "/404.html",
                     "/assets/**", "/static/**", "/favicon.ico", "/vite.svg"
                 ).permitAll()
-                // ===== 需要认证的接口 =====
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll()
             )
