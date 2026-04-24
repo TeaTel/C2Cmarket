@@ -84,6 +84,12 @@ public class ProductController {
     @GetMapping("/deploy-version")
     @Operation(summary = "部署版本检测")
     public Result<String> getDeployVersion() {
-        return Result.success("deployed", "v2.0-refactor-4347327");
+        return Result.success("deployed", "v2.0-permitall-test");
+    }
+
+    @GetMapping("/ping")
+    @Operation(summary = "Ping测试")
+    public Result<String> ping() {
+        return Result.success("pong", "server-is-alive");
     }
 }
